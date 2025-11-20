@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import CSVImport from '@/components/CSVImport'
 
 interface Event {
   id: string
@@ -28,6 +29,7 @@ export default function AdminPage() {
   const [selectedEventId, setSelectedEventId] = useState<string>('')
   const [showNewEventForm, setShowNewEventForm] = useState(false)
   const [showNewParticipantForm, setShowNewParticipantForm] = useState(false)
+  const [showCSVImport, setShowCSVImport] = useState(false)
   const [loading, setLoading] = useState(false)
 
   // New event form state
@@ -251,14 +253,41 @@ export default function AdminPage() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               参加者リスト
             </h2>
-            <button
-              onClick={() => setShowNewParticipantForm(!showNewParticipantForm)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              disabled={!selectedEventId}
-            >
-              {showNewParticipantForm ? 'キャンセル' : '参加者追加'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowCSVImport(!showCSVImport)
+                  setShowNewParticipantForm(false)
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                disabled={!selectedEventId}
+              >
+                {showCSVImport ? 'キャンセル' : 'CSVインポート'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowNewParticipantForm(!showNewParticipantForm)
+                  setShowCSVImport(false)
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                disabled={!selectedEventId}
+              >
+                {showNewParticipantForm ? 'キャンセル' : '参加者追加'}
+              </button>
+            </div>
           </div>
+
+          {showCSVImport && selectedEventId && (
+            <div className="mb-6">
+              <CSVImport
+                eventId={selectedEventId}
+                onImportComplete={() => {
+                  fetchParticipants(selectedEventId)
+                  setShowCSVImport(false)
+                }}
+              />
+            </div>
+          )}
 
           {showNewParticipantForm && (
             <form onSubmit={handleCreateParticipant} className="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
