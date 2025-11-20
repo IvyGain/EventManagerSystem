@@ -146,6 +146,59 @@ export default function AdminPage() {
     }
   }
 
+  const handleSendEmail = async (participantId: string, participantEmail: string) => {
+    if (!confirm(`${participantEmail} にQRコードを送信しますか？`)) return
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/email/send-qr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ participantId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`メール送信成功: ${participantEmail}`)
+      } else {
+        alert(`メール送信エラー: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sending email:', error)
+      alert('メール送信に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendAllEmails = async () => {
+    if (!selectedEventId) return
+    if (!confirm(`全参加者（${participants.length}人）にQRコードをメール送信しますか？`)) return
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/email/send-qr', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: selectedEventId }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`メール一括送信完了\n成功: ${data.summary.success}件\nエラー: ${data.summary.errors}件`)
+      } else {
+        alert(`メール送信エラー: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sending bulk emails:', error)
+      alert('メール送信に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const selectedEvent = events.find(e => e.id === selectedEventId)
 
   return (
@@ -253,7 +306,14 @@ export default function AdminPage() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               参加者リスト
             </h2>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={handleSendAllEmails}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+                disabled={!selectedEventId || participants.length === 0 || loading}
+              >
+                📧 全員にメール送信
+              </button>
               <button
                 onClick={() => {
                   setShowCSVImport(!showCSVImport)
@@ -355,12 +415,21 @@ export default function AdminPage() {
                       )}
                     </td>
                     <td className="p-3 text-center">
-                      <button
-                        onClick={() => showQRCode(participant.id)}
-                        className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
-                      >
-                        QR表示
-                      </button>
+                      <div className="flex gap-2 justify-center">
+                        <button
+                          onClick={() => showQRCode(participant.id)}
+                          className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                        >
+                          QR表示
+                        </button>
+                        <button
+                          onClick={() => handleSendEmail(participant.id, participant.email)}
+                          className="px-3 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 text-sm"
+                          disabled={loading}
+                        >
+                          📧 送信
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
