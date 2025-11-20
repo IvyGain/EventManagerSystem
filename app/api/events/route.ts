@@ -18,10 +18,10 @@ export async function GET() {
       },
     })
 
-    const eventsWithStats = events.map((event) => ({
+    const eventsWithStats = events.map((event: typeof events[number]) => ({
       ...event,
       totalParticipants: event.participants.length,
-      checkedInCount: event.participants.filter((p) => p.checkedIn).length,
+      checkedInCount: event.participants.filter((p: typeof event.participants[number]) => p.checkedIn).length,
     }))
 
     return NextResponse.json(eventsWithStats)

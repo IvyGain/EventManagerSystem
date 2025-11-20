@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     })
 
     const qrCodes = await Promise.all(
-      participants.map(async (participant) => {
+      participants.map(async (participant: typeof participants[number]) => {
         const qrCode = await generateQRCode(participant.qrToken)
         return {
           participantId: participant.id,
