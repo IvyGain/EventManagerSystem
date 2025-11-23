@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import { getParticipantById, getParticipants } from '@/lib/lark'
 import { generateQRCode } from '@/lib/qr'
 
 // GET /api/qr?participantId=xxx - Generate QR code for a participant
@@ -15,9 +15,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const participant = await prisma.participant.findUnique({
-      where: { id: participantId },
-    })
+    const participant = await getParticipantById(participantId)
 
     if (!participant) {
       return NextResponse.json(
@@ -59,12 +57,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const participants = await prisma.participant.findMany({
-      where: { eventId },
-    })
+    const participants = await getParticipants(eventId)
 
     const qrCodes = await Promise.all(
-      participants.map(async (participant: typeof participants[number]) => {
+      participants.map(async (participant) => {
         const qrCode = await generateQRCode(participant.qrToken)
         return {
           participantId: participant.id,

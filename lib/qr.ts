@@ -39,6 +39,8 @@ export async function generateQRCode(token: string): Promise<string> {
  * @returns boolean - True if valid format
  */
 export function verifyQRToken(token: string): boolean {
-  // Check if token is a valid SHA256 hash
-  return /^[a-f0-9]{64}$/.test(token)
+  // Check if token is a valid SHA256 hash or UUID
+  const sha256Pattern = /^[a-f0-9]{64}$/
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  return sha256Pattern.test(token) || uuidPattern.test(token)
 }

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { generateQRToken } from '@/lib/qr'
+import { getEventById, getParticipants, createParticipant } from '@/lib/lark'
 
 interface CSVRow {
   name: string
@@ -25,9 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate event exists
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-    })
+    const event = await getEventById(eventId)
 
     if (!event) {
       return NextResponse.json(
@@ -35,6 +32,10 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       )
     }
+
+    // Get existing participants for duplicate checking
+    const existingParticipants = await getParticipants(eventId)
+    const existingEmails = new Set(existingParticipants.map(p => p.email.toLowerCase()))
 
     const results = {
       success: [] as string[],
@@ -68,35 +69,23 @@ export async function POST(request: NextRequest) {
         continue
       }
 
+      // Check for duplicates
+      if (existingEmails.has(participant.email.trim().toLowerCase())) {
+        results.duplicates.push(participant.email)
+        continue
+      }
+
       try {
-        // Check if participant already exists for this event
-        const existing = await prisma.participant.findFirst({
-          where: {
-            eventId,
-            email: participant.email,
-          },
-        })
-
-        if (existing) {
-          results.duplicates.push(participant.email)
-          continue
-        }
-
-        // Generate QR token
-        const qrToken = generateQRToken(eventId, participant.email)
-
         // Create participant
-        await prisma.participant.create({
-          data: {
-            eventId,
-            name: participant.name.trim(),
-            email: participant.email.trim().toLowerCase(),
-            company: participant.company?.trim() || null,
-            qrToken,
-          },
+        await createParticipant({
+          eventId,
+          name: participant.name.trim(),
+          email: participant.email.trim().toLowerCase(),
+          company: participant.company?.trim() || undefined,
         })
 
         results.success.push(participant.email)
+        existingEmails.add(participant.email.trim().toLowerCase())
       } catch (error) {
         console.error(`Error creating participant ${participant.email}:`, error)
         results.errors.push({

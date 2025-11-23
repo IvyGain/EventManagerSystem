@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
+import {
+  getParticipantByQrToken,
+  updateParticipantCheckIn,
+  createCheckInLog,
+  getEventById,
+  getEventStats
+} from '@/lib/lark'
 import { verifyQRToken } from '@/lib/qr'
 
 // POST /api/checkin - Check in a participant
@@ -24,10 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find participant by QR token
-    const participant = await prisma.participant.findUnique({
-      where: { qrToken: token },
-      include: { event: true },
-    })
+    const participant = await getParticipantByQrToken(token)
 
     if (!participant) {
       return NextResponse.json(
@@ -51,36 +54,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update participant and create check-in log
-    const [updatedParticipant, checkInLog] = await prisma.$transaction([
-      prisma.participant.update({
-        where: { id: participant.id },
-        data: {
-          checkedIn: true,
-          checkedInAt: new Date(),
-        },
-        include: { event: true },
-      }),
-      prisma.checkInLog.create({
-        data: {
-          participantId: participant.id,
-          deviceInfo: deviceInfo || null,
-        },
-      }),
-    ])
+    // Get event details
+    const event = await getEventById(participant.eventId)
+
+    // Update participant check-in status
+    if (participant.record_id) {
+      await updateParticipantCheckIn(participant.record_id, true)
+    }
+
+    // Create check-in log
+    await createCheckInLog({
+      participantId: participant.id,
+      deviceInfo: deviceInfo || undefined,
+    })
 
     return NextResponse.json({
       success: true,
       participant: {
-        id: updatedParticipant.id,
-        name: updatedParticipant.name,
-        email: updatedParticipant.email,
-        company: updatedParticipant.company,
-        checkedInAt: updatedParticipant.checkedInAt,
-        event: {
-          name: updatedParticipant.event.name,
-          date: updatedParticipant.event.date,
-        },
+        id: participant.id,
+        name: participant.name,
+        email: participant.email,
+        company: participant.company,
+        checkedInAt: new Date().toISOString(),
+        event: event ? {
+          name: event.name,
+          date: event.date,
+        } : null,
       },
     })
   } catch (error) {
@@ -105,17 +104,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const [total, checkedIn] = await Promise.all([
-      prisma.participant.count({ where: { eventId } }),
-      prisma.participant.count({ where: { eventId, checkedIn: true } }),
-    ])
+    const stats = await getEventStats(eventId)
 
-    const checkInRate = total > 0 ? Math.round((checkedIn / total) * 100) : 0
+    const checkInRate = stats.totalParticipants > 0
+      ? Math.round((stats.checkedInCount / stats.totalParticipants) * 100)
+      : 0
 
     return NextResponse.json({
-      total,
-      checkedIn,
-      notCheckedIn: total - checkedIn,
+      total: stats.totalParticipants,
+      checkedIn: stats.checkedInCount,
+      notCheckedIn: stats.totalParticipants - stats.checkedInCount,
       checkInRate,
     })
   } catch (error) {

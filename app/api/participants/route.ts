@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/db'
-import { generateQRToken } from '@/lib/qr'
+import { getParticipants, createParticipant, getEventById } from '@/lib/lark'
 
 // GET /api/participants - List all participants
 export async function GET(request: NextRequest) {
@@ -8,16 +7,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const eventId = searchParams.get('eventId')
 
-    const participants = await prisma.participant.findMany({
-      where: eventId ? { eventId } : undefined,
-      include: {
-        event: true,
-        checkInLogs: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const participants = await getParticipants(eventId || undefined)
 
     return NextResponse.json(participants)
   } catch (error) {
@@ -42,13 +32,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Check if event exists
+    const event = await getEventById(eventId)
+    if (!event) {
+      return NextResponse.json(
+        { error: 'Event not found' },
+        { status: 404 }
+      )
+    }
+
     // Check if participant already exists for this event
-    const existing = await prisma.participant.findFirst({
-      where: {
-        eventId,
-        email,
-      },
-    })
+    const existingParticipants = await getParticipants(eventId)
+    const existing = existingParticipants.find(p => p.email === email)
 
     if (existing) {
       return NextResponse.json(
@@ -57,21 +52,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate QR token
-    const qrToken = generateQRToken(eventId, email)
-
     // Create participant
-    const participant = await prisma.participant.create({
-      data: {
-        eventId,
-        name,
-        email,
-        company,
-        qrToken,
-      },
-      include: {
-        event: true,
-      },
+    const participant = await createParticipant({
+      eventId,
+      name,
+      email,
+      company,
     })
 
     return NextResponse.json(participant, { status: 201 })

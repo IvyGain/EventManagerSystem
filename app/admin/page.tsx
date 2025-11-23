@@ -205,11 +205,16 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <Link href="/" className="text-blue-600 hover:text-blue-700 mb-4 inline-block">
-            ← ホームに戻る
-          </Link>
+          <div className="flex justify-between items-center mb-4">
+            <Link href="/" className="text-blue-600 hover:text-blue-700">
+              &larr; Home
+            </Link>
+            <Link href="/settings" className="text-gray-600 hover:text-gray-800 flex items-center gap-2">
+              &#9881; Email Settings
+            </Link>
+          </div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            管理画面
+            Admin Dashboard
           </h1>
         </div>
 
