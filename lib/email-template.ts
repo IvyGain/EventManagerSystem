@@ -14,6 +14,24 @@ interface EmailTemplateData {
   customMessage?: string
 }
 
+interface EmailSettings {
+  greeting?: string
+  mainMessage?: string
+  instructions?: string[]
+  footer?: string
+}
+
+interface ReminderTemplateData {
+  participantName: string
+  participantEmail: string
+  participantCompany?: string
+  eventName: string
+  eventDate: string
+  eventLocation: string
+  qrPageUrl?: string
+  customMessage?: string
+}
+
 /**
  * Generate HTML email with QR code
  * @param data - Email template data
@@ -213,46 +231,46 @@ export function generateEmailTemplate(
 
             ${data.qrPageUrl ? `
             <div class="qr-link-box">
-              <a href="${data.qrPageUrl}">&#128279; View QR Code Online</a>
-              <p>Save this link - access your QR code anytime from any device</p>
+              <a href="${data.qrPageUrl}">&#128279; オンラインでQRコードを表示</a>
+              <p>このリンクを保存しておけば、いつでもQRコードにアクセスできます</p>
               <p style="font-size: 11px; color: #999; word-break: break-all;">${data.qrPageUrl}</p>
             </div>
             ` : ''}
 
             <div class="info-section">
               <div class="info-row">
-                <span class="info-label">Name</span>
+                <span class="info-label">お名前</span>
                 <span class="info-value">${data.participantName}</span>
               </div>
               <div class="info-row">
-                <span class="info-label">Email</span>
+                <span class="info-label">メール</span>
                 <span class="info-value">${data.participantEmail}</span>
               </div>
               ${data.participantCompany ? `
               <div class="info-row">
-                <span class="info-label">Company</span>
+                <span class="info-label">会社名</span>
                 <span class="info-value">${data.participantCompany}</span>
               </div>
               ` : ''}
               <div class="info-row">
-                <span class="info-label">Date</span>
+                <span class="info-label">日時</span>
                 <span class="info-value">${data.eventDate}</span>
               </div>
               <div class="info-row">
-                <span class="info-label">Location</span>
+                <span class="info-label">場所</span>
                 <span class="info-value">${data.eventLocation}</span>
               </div>
             </div>
           </div>
 
           <div class="footer">
-            <p><strong>Important Notes:</strong></p>
+            <p><strong>ご注意事項:</strong></p>
             <ul>
-              <li>This QR code is for your personal use only</li>
-              <li>Please keep it safe until check-in</li>
-              <li>Display on smartphone or print this email</li>
+              <li>このQRコードは参加者様専用です</li>
+              <li>当日受付でスキャンするまで大切に保管してください</li>
+              <li>印刷またはスマートフォンの画面で表示してください</li>
             </ul>
-            <p style="text-align: center; margin-top: 20px;">We look forward to seeing you!</p>
+            <p style="text-align: center; margin-top: 20px;">皆様のご来場を心よりお待ちしております！</p>
           </div>
         </div>
       </body>
@@ -303,3 +321,163 @@ export const EMAIL_PLACEHOLDERS = [
   '{{EVENT_DATE}}',     // Event date/time
   '{{EVENT_LOCATION}}'  // Event location
 ]
+
+/**
+ * Generate reminder email HTML
+ */
+export function generateReminderEmailTemplate(data: ReminderTemplateData, settings?: { message?: string }): string {
+  const message = settings?.message || 'いよいよイベントが近づいてまいりました。当日のご来場を心よりお待ちしております。'
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+          }
+          .container {
+            background-color: #ffffff;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          }
+          .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+          }
+          .header .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            margin-bottom: 10px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .message {
+            font-size: 16px;
+            line-height: 1.8;
+            color: #444;
+            margin-bottom: 25px;
+          }
+          .event-details {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 20px 0;
+          }
+          .detail-row {
+            display: flex;
+            padding: 12px 0;
+            border-bottom: 1px solid #dee2e6;
+          }
+          .detail-row:last-child {
+            border-bottom: none;
+          }
+          .detail-icon {
+            font-size: 20px;
+            width: 40px;
+            text-align: center;
+          }
+          .detail-content {
+            flex: 1;
+          }
+          .detail-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .detail-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+          }
+          .qr-reminder {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+          }
+          .qr-reminder a {
+            display: inline-block;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-top: 10px;
+          }
+          .footer {
+            background-color: #f8f9fa;
+            padding: 20px 30px;
+            font-size: 13px;
+            color: #666;
+            text-align: center;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <div class="badge">&#128276; リマインド</div>
+            <h1>${data.eventName}</h1>
+          </div>
+
+          <div class="content">
+            <p class="message">${data.participantName} 様<br><br>${message}</p>
+
+            <div class="event-details">
+              <div class="detail-row">
+                <div class="detail-icon">&#128197;</div>
+                <div class="detail-content">
+                  <div class="detail-label">日時</div>
+                  <div class="detail-value">${data.eventDate}</div>
+                </div>
+              </div>
+              <div class="detail-row">
+                <div class="detail-icon">&#128205;</div>
+                <div class="detail-content">
+                  <div class="detail-label">場所</div>
+                  <div class="detail-value">${data.eventLocation}</div>
+                </div>
+              </div>
+            </div>
+
+            ${data.qrPageUrl ? `
+            <div class="qr-reminder">
+              <p style="margin: 0 0 10px 0; font-weight: bold; color: #1976d2;">
+                受付ではQRコードをご提示ください
+              </p>
+              <a href="${data.qrPageUrl}">&#128279; QRコードを表示</a>
+            </div>
+            ` : ''}
+          </div>
+
+          <div class="footer">
+            <p>皆様のご来場を心よりお待ちしております！</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `
+}

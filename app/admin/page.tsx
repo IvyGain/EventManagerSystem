@@ -30,7 +30,19 @@ export default function AdminPage() {
   const [showNewEventForm, setShowNewEventForm] = useState(false)
   const [showNewParticipantForm, setShowNewParticipantForm] = useState(false)
   const [showCSVImport, setShowCSVImport] = useState(false)
+  const [showEmailSettings, setShowEmailSettings] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [emailSettings, setEmailSettings] = useState({
+    qrSubject: '',
+    qrGreeting: '',
+    qrMainMessage: '',
+    qrInstructions: '[]',
+    qrFooter: '',
+    reminderEnabled: false,
+    reminderDaysBefore: 1,
+    reminderSubject: '',
+    reminderMessage: ''
+  })
 
   // New event form state
   const [newEvent, setNewEvent] = useState({ name: '', date: '', location: '' })
@@ -49,6 +61,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (selectedEventId) {
       fetchParticipants(selectedEventId)
+      fetchEmailSettings(selectedEventId)
     }
   }, [selectedEventId])
 
@@ -72,6 +85,65 @@ export default function AdminPage() {
       setParticipants(data)
     } catch (error) {
       console.error('Error fetching participants:', error)
+    }
+  }
+
+  const fetchEmailSettings = async (eventId: string) => {
+    try {
+      const response = await fetch(`/api/events/${eventId}/email-settings`)
+      const data = await response.json()
+      setEmailSettings(data)
+    } catch (error) {
+      console.error('Error fetching email settings:', error)
+    }
+  }
+
+  const saveEmailSettings = async () => {
+    if (!selectedEventId) return
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/events/${selectedEventId}/email-settings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(emailSettings)
+      })
+      if (response.ok) {
+        alert('メール設定を保存しました')
+      } else {
+        alert('保存に失敗しました')
+      }
+    } catch (error) {
+      console.error('Error saving email settings:', error)
+      alert('保存に失敗しました')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSendReminder = async () => {
+    if (!selectedEventId) return
+    if (!confirm(`全参加者（${participants.length}人）にリマインドメールを送信しますか？`)) return
+
+    setLoading(true)
+    try {
+      const response = await fetch('/api/email/send-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ eventId: selectedEventId })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        alert(`リマインドメール送信完了\n成功: ${data.summary.success}件\nエラー: ${data.summary.errors}件`)
+      } else {
+        alert(`送信エラー: ${data.error}`)
+      }
+    } catch (error) {
+      console.error('Error sending reminder:', error)
+      alert('リマインドメール送信に失敗しました')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -207,14 +279,14 @@ export default function AdminPage() {
         <div className="mb-8">
           <div className="flex justify-between items-center mb-4">
             <Link href="/" className="text-blue-600 hover:text-blue-700">
-              &larr; Home
+              &larr; ホーム
             </Link>
             <Link href="/settings" className="text-gray-600 hover:text-gray-800 flex items-center gap-2">
-              &#9881; Email Settings
+              &#9881; グローバルメール設定
             </Link>
           </div>
           <h1 className="text-4xl font-bold text-gray-900 dark:text-white">
-            Admin Dashboard
+            管理画面
           </h1>
         </div>
 
@@ -269,17 +341,33 @@ export default function AdminPage() {
             </form>
           )}
 
-          <select
-            value={selectedEventId}
-            onChange={(e) => setSelectedEventId(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white mb-4"
-          >
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.name} - {new Date(event.date).toLocaleDateString('ja-JP')} ({event.checkedInCount}/{event.totalParticipants})
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-2 mb-4">
+            <select
+              value={selectedEventId}
+              onChange={(e) => setSelectedEventId(e.target.value)}
+              className="flex-1 px-4 py-2 border rounded-lg dark:bg-gray-700 dark:text-white"
+            >
+              {events.map((event) => (
+                <option key={event.id} value={event.id}>
+                  {event.name} - {new Date(event.date).toLocaleDateString('ja-JP')} ({event.checkedInCount}/{event.totalParticipants})
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowEmailSettings(!showEmailSettings)}
+              className={`px-4 py-2 rounded-lg ${showEmailSettings ? 'bg-gray-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+              disabled={!selectedEventId}
+            >
+              &#9993; メール設定
+            </button>
+            <button
+              onClick={handleSendReminder}
+              className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              disabled={!selectedEventId || participants.length === 0 || loading}
+            >
+              &#128276; リマインド送信
+            </button>
+          </div>
 
           {selectedEvent && (
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -300,6 +388,132 @@ export default function AdminPage() {
                   {Math.round((selectedEvent.checkedInCount / (selectedEvent.totalParticipants || 1)) * 100)}%
                 </div>
                 <div className="text-gray-600 dark:text-gray-300">チェックイン率</div>
+              </div>
+            </div>
+          )}
+
+          {/* Email Settings Panel */}
+          {showEmailSettings && (
+            <div className="mt-6 p-6 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                このイベントのメール設定
+              </h3>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* QR Code Email Settings */}
+                <div>
+                  <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">QRコード送信メール</h4>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">件名</label>
+                      <input
+                        type="text"
+                        value={emailSettings.qrSubject || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, qrSubject: e.target.value })}
+                        placeholder="{{eventName}} - チェックイン用QRコード"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">挨拶文</label>
+                      <input
+                        type="text"
+                        value={emailSettings.qrGreeting || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, qrGreeting: e.target.value })}
+                        placeholder="ご参加いただきありがとうございます！"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">本文</label>
+                      <textarea
+                        value={emailSettings.qrMainMessage || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, qrMainMessage: e.target.value })}
+                        placeholder="当日は下記のQRコードを受付でご提示ください。"
+                        rows={2}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">フッター</label>
+                      <input
+                        type="text"
+                        value={emailSettings.qrFooter || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, qrFooter: e.target.value })}
+                        placeholder="皆様のご来場を心よりお待ちしております！"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reminder Email Settings */}
+                <div>
+                  <h4 className="font-bold text-gray-800 dark:text-gray-200 mb-3">リマインドメール</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id="reminderEnabled"
+                        checked={emailSettings.reminderEnabled}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, reminderEnabled: e.target.checked })}
+                        className="w-5 h-5"
+                      />
+                      <label htmlFor="reminderEnabled" className="text-gray-700 dark:text-gray-300">
+                        リマインドメールを有効化
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">何日前に送信</label>
+                      <select
+                        value={emailSettings.reminderDaysBefore}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, reminderDaysBefore: parseInt(e.target.value) })}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      >
+                        <option value={1}>1日前</option>
+                        <option value={2}>2日前</option>
+                        <option value={3}>3日前</option>
+                        <option value={7}>1週間前</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">件名</label>
+                      <input
+                        type="text"
+                        value={emailSettings.reminderSubject || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, reminderSubject: e.target.value })}
+                        placeholder="【リマインド】{{eventName}} 開催のお知らせ"
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">メッセージ</label>
+                      <textarea
+                        value={emailSettings.reminderMessage || ''}
+                        onChange={(e) => setEmailSettings({ ...emailSettings, reminderMessage: e.target.value })}
+                        placeholder="いよいよ明日、イベントが開催されます。お忘れなくご参加ください。"
+                        rows={3}
+                        className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-white text-gray-900"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={saveEmailSettings}
+                  disabled={loading}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? '保存中...' : '設定を保存'}
+                </button>
+                <button
+                  onClick={() => setShowEmailSettings(false)}
+                  className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400"
+                >
+                  閉じる
+                </button>
               </div>
             </div>
           )}

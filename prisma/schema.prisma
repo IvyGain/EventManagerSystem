@@ -11,13 +11,37 @@ datasource db {
 }
 
 model Event {
-  id           String        @id @default(uuid())
-  name         String
-  date         DateTime
-  location     String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  participants Participant[]
+  id            String              @id @default(uuid())
+  name          String
+  date          DateTime
+  location      String
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+  participants  Participant[]
+  emailSettings EventEmailSettings?
+}
+
+// イベントごとのメール設定
+model EventEmailSettings {
+  id        String   @id @default(uuid())
+  eventId   String   @unique
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // QRコード送信メール設定
+  qrSubject      String?
+  qrGreeting     String?
+  qrMainMessage  String?
+  qrInstructions String?  // JSON配列として保存
+  qrFooter       String?
+
+  // リマインドメール設定
+  reminderEnabled    Boolean  @default(false)
+  reminderDaysBefore Int      @default(1)
+  reminderSubject    String?
+  reminderMessage    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Participant {
@@ -33,10 +57,25 @@ model Participant {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   checkInLogs CheckInLog[]
+  emailLogs   EmailLog[]
 
   @@unique([eventId, email])
   @@index([eventId])
   @@index([qrToken])
+}
+
+// メール送信履歴
+model EmailLog {
+  id            String      @id @default(uuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  type          String      // "qr" | "reminder"
+  sentAt        DateTime    @default(now())
+  status        String      // "sent" | "failed"
+  errorMessage  String?
+
+  @@index([participantId])
+  @@index([type])
 }
 
 model CheckInLog {

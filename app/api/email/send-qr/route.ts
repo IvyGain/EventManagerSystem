@@ -3,6 +3,7 @@ import { Resend } from 'resend'
 import { getParticipantById, getParticipants, getEventById } from '@/lib/lark'
 import { generateQRCode } from '@/lib/qr'
 import { generateEmailTemplate } from '@/lib/email-template'
+import { prisma } from '@/lib/prisma'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -73,6 +74,16 @@ export async function POST(request: NextRequest) {
       subject: `${event.name} - チェックイン用QRコード`,
       html: emailHtml,
     })
+
+    // メール送信ログを記録
+    await prisma.emailLog.create({
+      data: {
+        participantId: participant.id,
+        type: 'qr',
+        status: error ? 'failed' : 'sent',
+        errorMessage: error?.message
+      }
+    }).catch(console.error)
 
     if (error) {
       console.error('Email sending error:', error)
@@ -166,12 +177,32 @@ export async function PUT(request: NextRequest) {
               html: emailHtml,
             })
 
+            // メール送信ログを記録
+            await prisma.emailLog.create({
+              data: {
+                participantId: participant.id,
+                type: 'qr',
+                status: error ? 'failed' : 'sent',
+                errorMessage: error?.message
+              }
+            }).catch(console.error)
+
             if (error) {
               results.errors.push({ email: participant.email, error: error.message })
             } else {
               results.success.push(participant.email)
             }
           } catch (err) {
+            // エラーログを記録
+            await prisma.emailLog.create({
+              data: {
+                participantId: participant.id,
+                type: 'qr',
+                status: 'failed',
+                errorMessage: err instanceof Error ? err.message : 'Unknown error'
+              }
+            }).catch(console.error)
+
             results.errors.push({
               email: participant.email,
               error: err instanceof Error ? err.message : 'Unknown error',
